@@ -1,3 +1,4 @@
+import { isUndefined } from '@sniptt/guards';
 import { RetryableLogicFunctionError } from 'twenty-sdk/logic-function';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -35,7 +36,6 @@ const MEMBER_CANNOT_RECEIVE_ERROR = {
 const CALL_RECORDING = {
   id: 'call-recording-1',
   calendarEventId: 'calendar-event-1',
-  calendarEvent: { title: 'Weekly sync' },
   summary: { markdown: SUMMARY },
   createdBy: { source: 'APPLICATION', name: 'Call Recorder' },
 };
@@ -59,95 +59,120 @@ const buildSummaryUpdateEvent = ({
   },
 });
 
-const buildMemberVariables = ({
-  workspaceMemberId,
-  recapsValue,
-}: {
-  workspaceMemberId: string;
-  recapsValue?: string;
-}) => ({
-  userWorkspaceId: `user-workspace-of-${workspaceMemberId}`,
-  workspaceMemberId,
-  variables:
-    recapsValue === undefined
-      ? []
-      : [
-          {
-            key: 'CALL_RECORDER_MEMBER_INBOX_RECAPS_ENABLED',
-            value: recapsValue,
-          },
-        ],
-});
+const buildCalendarChannelId = (workspaceMemberId: string): string =>
+  `calendar-channel-of-${workspaceMemberId}`;
 
-const seedWorkspace = ({
+const buildUserWorkspaceId = (workspaceMemberId: string): string =>
+  `user-workspace-of-${workspaceMemberId}`;
+
+const seed = ({
   isInboxEnabled = true,
-  recapWorkspaceMemberIds = [],
+  callRecording = CALL_RECORDING,
+  calendarOwnerWorkspaceMemberIds = ['member-1', 'member-2'],
+  attendeeWorkspaceMemberIds = [],
+  recapsValueByWorkspaceMemberId = {},
+  calendarEventTitle = 'Weekly sync',
 }: {
   isInboxEnabled?: boolean;
-  recapWorkspaceMemberIds?: string[];
+  callRecording?: object;
+  calendarOwnerWorkspaceMemberIds?: string[];
+  attendeeWorkspaceMemberIds?: string[];
+  recapsValueByWorkspaceMemberId?: Record<string, string>;
+  calendarEventTitle?: string;
 } = {}) => {
-  const workspaceFeatureFlags = {
-    currentWorkspace: {
-      featureFlags: [
-        { key: 'IS_AI_CHAT_INBOX_ENABLED', value: isInboxEnabled },
-        { key: 'IS_MCP_SERVERS_ENABLED', value: true },
-      ],
+  const workspaceMemberIds = [
+    ...new Set([
+      ...calendarOwnerWorkspaceMemberIds,
+      ...attendeeWorkspaceMemberIds,
+    ]),
+  ];
+  const calendarEvent = {
+    id: 'calendar-event-1',
+    title: calendarEventTitle,
+    calendarChannelEventAssociations: {
+      edges: calendarOwnerWorkspaceMemberIds.map((workspaceMemberId) => ({
+        node: { calendarChannelId: buildCalendarChannelId(workspaceMemberId) },
+      })),
+    },
+    calendarEventParticipants: {
+      totalCount: attendeeWorkspaceMemberIds.length,
+      edges: attendeeWorkspaceMemberIds.map((workspaceMemberId) => ({
+        node: { handle: `${workspaceMemberId}@acme.com`, workspaceMemberId },
+      })),
     },
   };
-  const memberVariables = {
-    myUserApplicationVariables: [
-      ...recapWorkspaceMemberIds.map((workspaceMemberId) =>
-        buildMemberVariables({ workspaceMemberId, recapsValue: 'true' }),
-      ),
-      buildMemberVariables({
-        workspaceMemberId: 'member-recaps-off',
-        recapsValue: 'false',
-      }),
-      buildMemberVariables({ workspaceMemberId: 'member-nothing-saved' }),
-    ],
-  };
 
-  metadataQueryMock.mockImplementation(async (query: object) => {
-    if ('currentWorkspace' in query) {
-      return workspaceFeatureFlags;
+  queryMock.mockImplementation(async (query: object) => {
+    if ('callRecordings' in query) {
+      return { callRecordings: { edges: [{ node: callRecording }] } };
     }
 
-    return memberVariables;
+    return {
+      calendarEvents: {
+        pageInfo: { hasNextPage: false, endCursor: null },
+        edges: [{ node: calendarEvent }],
+      },
+    };
   });
-};
-
-const seedMeeting = ({
-  callRecording = CALL_RECORDING,
-  workspaceMemberIds = ['member-1', 'member-2'],
-}: {
-  callRecording?: object;
-  workspaceMemberIds?: string[];
-} = {}) => {
-  queryMock.mockImplementation(async (query: object) =>
-    'callRecordings' in query
-      ? { callRecordings: { edges: [{ node: callRecording }] } }
-      : {
-          calendarEventParticipants: {
-            pageInfo: { hasNextPage: false, endCursor: null },
-            edges: workspaceMemberIds.map((workspaceMemberId) => ({
-              node: { workspaceMemberId },
-            })),
-          },
+  metadataQueryMock.mockImplementation(async (query: object) => {
+    if ('currentWorkspace' in query) {
+      return {
+        currentWorkspace: {
+          featureFlags: [
+            { key: 'IS_AI_CHAT_INBOX_ENABLED', value: isInboxEnabled },
+            { key: 'IS_MCP_SERVERS_ENABLED', value: true },
+          ],
         },
-  );
+      };
+    }
+
+    if ('calendarChannels' in query) {
+      return {
+        calendarChannels: calendarOwnerWorkspaceMemberIds.map(
+          (workspaceMemberId) => ({
+            id: buildCalendarChannelId(workspaceMemberId),
+            handle: `${workspaceMemberId}@gmail.com`,
+            connectedAccount: {
+              userWorkspaceId: buildUserWorkspaceId(workspaceMemberId),
+            },
+          }),
+        ),
+      };
+    }
+
+    return {
+      myUserApplicationVariables: workspaceMemberIds.map(
+        (workspaceMemberId) => ({
+          userWorkspaceId: buildUserWorkspaceId(workspaceMemberId),
+          workspaceMemberId,
+          variables: isUndefined(
+            recapsValueByWorkspaceMemberId[workspaceMemberId],
+          )
+            ? []
+            : [
+                {
+                  key: 'CALL_RECORDER_MEMBER_INBOX_RECAPS_ENABLED',
+                  value: recapsValueByWorkspaceMemberId[workspaceMemberId],
+                },
+              ],
+        }),
+      ),
+    };
+  });
 };
 
 describe('post-call-recording-to-inbox logic function', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    seedWorkspace();
-    seedMeeting();
+    seed();
     inboxReferenceRecordMock.mockResolvedValue('[[record:call-recording-1]]');
     sendInboxMessageMock.mockResolvedValue({ threadId: 'thread-1' });
   });
 
-  it('sends each member of the meeting their own conversation', async () => {
-    seedMeeting({ workspaceMemberIds: ['member-2', 'member-1', 'member-2'] });
+  it('sends each member who has the meeting on their calendar their own conversation', async () => {
+    seed({
+      calendarOwnerWorkspaceMemberIds: ['member-2', 'member-1', 'member-2'],
+    });
 
     expect(
       await postCallRecordingToInboxHandler(buildSummaryUpdateEvent()),
@@ -177,9 +202,42 @@ describe('post-call-recording-to-inbox logic function', () => {
     ]);
   });
 
+  it('sends nothing to a member who attends without the meeting on a calendar of theirs', async () => {
+    seed({
+      calendarOwnerWorkspaceMemberIds: ['member-1'],
+      attendeeWorkspaceMemberIds: ['member-1', 'member-2'],
+    });
+
+    expect(
+      await postCallRecordingToInboxHandler(buildSummaryUpdateEvent()),
+    ).toMatchObject({ outcome: 'sent', workspaceMemberCount: 1 });
+    expect(sendInboxMessageMock).toHaveBeenCalledTimes(1);
+    expect(sendInboxMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceMemberIds: ['member-1'] }),
+    );
+  });
+
+  it('sends to the owner of the calendar even when they are not an attendee by email', async () => {
+    seed({
+      calendarOwnerWorkspaceMemberIds: ['member-1'],
+      attendeeWorkspaceMemberIds: ['member-2'],
+    });
+
+    await postCallRecordingToInboxHandler(buildSummaryUpdateEvent());
+
+    expect(sendInboxMessageMock.mock.calls).toEqual([
+      [expect.objectContaining({ workspaceMemberIds: ['member-1'] })],
+    ]);
+  });
+
   it('sends the members who asked for recaps their own conversation per call', async () => {
-    seedWorkspace({ recapWorkspaceMemberIds: ['member-1', 'member-3'] });
-    seedMeeting({ workspaceMemberIds: ['member-1', 'member-2', 'member-3'] });
+    seed({
+      calendarOwnerWorkspaceMemberIds: ['member-1', 'member-2', 'member-3'],
+      recapsValueByWorkspaceMemberId: {
+        'member-1': 'true',
+        'member-3': 'true',
+      },
+    });
 
     expect(
       await postCallRecordingToInboxHandler(buildSummaryUpdateEvent()),
@@ -216,10 +274,23 @@ describe('post-call-recording-to-inbox logic function', () => {
     ]);
   });
 
-  it('treats recaps switched off or never set as off', async () => {
-    seedMeeting({
-      workspaceMemberIds: ['member-recaps-off', 'member-nothing-saved'],
+  it('sends no recap to a member who asked for recaps but does not have the meeting on a calendar of theirs', async () => {
+    seed({
+      calendarOwnerWorkspaceMemberIds: ['member-1'],
+      attendeeWorkspaceMemberIds: ['member-2'],
+      recapsValueByWorkspaceMemberId: { 'member-2': 'true' },
     });
+
+    expect(
+      await postCallRecordingToInboxHandler(buildSummaryUpdateEvent()),
+    ).toMatchObject({ workspaceMemberCount: 1, recapWorkspaceMemberCount: 0 });
+    expect(sendInboxMessageMock.mock.calls).toEqual([
+      [expect.objectContaining({ workspaceMemberIds: ['member-1'] })],
+    ]);
+  });
+
+  it('treats recaps switched off or never set as off', async () => {
+    seed({ recapsValueByWorkspaceMemberId: { 'member-1': 'false' } });
 
     expect(
       await postCallRecordingToInboxHandler(buildSummaryUpdateEvent()),
@@ -231,15 +302,10 @@ describe('post-call-recording-to-inbox logic function', () => {
   });
 
   it('does not show a meeting title that is not shared', async () => {
-    seedWorkspace({ recapWorkspaceMemberIds: ['member-1'] });
-    seedMeeting({
-      callRecording: {
-        ...CALL_RECORDING,
-        calendarEvent: {
-          title: 'FIELD_RESTRICTED_ADDITIONAL_PERMISSIONS_REQUIRED',
-        },
-      },
-      workspaceMemberIds: ['member-1'],
+    seed({
+      calendarOwnerWorkspaceMemberIds: ['member-1'],
+      recapsValueByWorkspaceMemberId: { 'member-1': 'true' },
+      calendarEventTitle: 'FIELD_RESTRICTED_ADDITIONAL_PERMISSIONS_REQUIRED',
     });
 
     await postCallRecordingToInboxHandler(buildSummaryUpdateEvent());
@@ -250,21 +316,19 @@ describe('post-call-recording-to-inbox logic function', () => {
   });
 
   it('sends a recap without a gist when the summary has none', async () => {
-    seedWorkspace({ recapWorkspaceMemberIds: ['member-1'] });
-    seedMeeting({
+    seed({
       callRecording: {
         ...CALL_RECORDING,
-        calendarEvent: null,
         summary: { markdown: '## Overview\nA short sync.' },
       },
-      workspaceMemberIds: ['member-1'],
+      calendarOwnerWorkspaceMemberIds: ['member-1'],
+      recapsValueByWorkspaceMemberId: { 'member-1': 'true' },
     });
 
     await postCallRecordingToInboxHandler(buildSummaryUpdateEvent());
 
     expect(sendInboxMessageMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'Call recap',
         text: 'Your call was recorded: [[record:call-recording-1]].',
       }),
     );
@@ -321,7 +385,7 @@ describe('post-call-recording-to-inbox logic function', () => {
   });
 
   it('sends nothing while Inbox is off', async () => {
-    seedWorkspace({ isInboxEnabled: false });
+    seed({ isInboxEnabled: false });
 
     expect(
       await postCallRecordingToInboxHandler(buildSummaryUpdateEvent()),
@@ -346,11 +410,14 @@ describe('post-call-recording-to-inbox logic function', () => {
         callRecording: { ...CALL_RECORDING, summary: { markdown: null } },
       },
     },
-    { outcome: 'no-workspace-members', meeting: { workspaceMemberIds: [] } },
+    {
+      outcome: 'no-workspace-members',
+      meeting: { calendarOwnerWorkspaceMemberIds: [] },
+    },
   ])(
     'sends nothing when the outcome is $outcome',
     async ({ outcome, meeting }) => {
-      seedMeeting(meeting);
+      seed(meeting);
 
       expect(
         await postCallRecordingToInboxHandler(buildSummaryUpdateEvent()),
