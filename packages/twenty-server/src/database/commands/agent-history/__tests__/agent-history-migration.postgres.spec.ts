@@ -4,6 +4,7 @@ import { AgentChatMemberMessagePlacement } from 'src/engine/metadata-modules/ai/
 import { backfillWorkspaceChatThreadOwnerGrants } from 'src/engine/metadata-modules/ai/ai-chat/utils/backfill-workspace-chat-thread-owner-grants.util';
 import { LinkChatMessageSendersToWorkspaceMembersCommand } from 'src/database/commands/upgrade-version-command/2-44/2-44-workspace-command-1790605326331-link-chat-message-senders-to-workspace-members.command';
 import { AgentHistoryWorkspaceStorageService } from 'src/engine/metadata-modules/ai/ai-history/services/agent-history-workspace-storage.service';
+import { LEGACY_INBOX_OBJECT_NAMES } from 'src/engine/metadata-modules/ai/ai-history/constants/legacy-inbox-object-names.constant';
 import { STANDARD_OBJECTS } from 'twenty-shared/metadata';
 import { withWorkspaceContext } from 'src/engine/twenty-orm/storage/orm-workspace-context.storage';
 import { AgentChatMemberMessagePartsService } from 'src/engine/metadata-modules/ai/ai-chat/services/agent-chat-member-message-parts.service';
@@ -74,8 +75,12 @@ const SCHEMA = getWorkspaceSchemaName(WORKSPACE_ID);
       synchronize: false,
     });
     const storage = new AgentHistoryUpgradeStorageService(dataSource);
+    const inboxObjectNamesResolver = {
+      resolve: async () => LEGACY_INBOX_OBJECT_NAMES,
+    };
     const workspaceStorage = new AgentHistoryWorkspaceStorageService(
       dataSource,
+      inboxObjectNamesResolver as never,
     );
     const migrationState = new AgentHistoryMigrationStateService();
     const migration = new AgentHistoryMigrationService(
@@ -183,12 +188,14 @@ const SCHEMA = getWorkspaceSchemaName(WORKSPACE_ID);
       'agentChatThread',
       workspaceStorage,
       orm,
+      inboxObjectNamesResolver,
     );
 
     const messages = new AgentHistoryRepository<AgentMessageWorkspaceEntity>(
       'agentMessage',
       workspaceStorage,
       orm,
+      inboxObjectNamesResolver,
     );
 
     const readRoute = async () => {
@@ -205,12 +212,14 @@ const SCHEMA = getWorkspaceSchemaName(WORKSPACE_ID);
       'agentTurn',
       workspaceStorage,
       orm,
+      inboxObjectNamesResolver,
     );
     const messageParts =
       new AgentHistoryRepository<AgentMessagePartWorkspaceEntity>(
         'agentMessagePart',
         workspaceStorage,
         orm,
+        inboxObjectNamesResolver,
       );
 
     const chatSharing = {
@@ -231,19 +240,23 @@ const SCHEMA = getWorkspaceSchemaName(WORKSPACE_ID);
       emitThreadUpdated: jest.fn().mockResolvedValue(undefined),
     };
     const conversationWriter = new AgentConversationWriterService(
-      new AgentHistoryTransactionService(orm as never, {
-        findDirectMessagePairOfThread: jest.fn().mockResolvedValue(null),
-        makeConversationRecordsPrivateToPair: jest
-          .fn()
-          .mockRejectedValue(
-            new Error('DM identity is disabled for the migration fixture'),
-          ),
-        deletePairSharesOfConversationRecords: jest
-          .fn()
-          .mockRejectedValue(
-            new Error('DM identity is disabled for the migration fixture'),
-          ),
-      }),
+      new AgentHistoryTransactionService(
+        orm as never,
+        {
+          findDirectMessagePairOfThread: jest.fn().mockResolvedValue(null),
+          makeConversationRecordsPrivateToPair: jest
+            .fn()
+            .mockRejectedValue(
+              new Error('DM identity is disabled for the migration fixture'),
+            ),
+          deletePairSharesOfConversationRecords: jest
+            .fn()
+            .mockRejectedValue(
+              new Error('DM identity is disabled for the migration fixture'),
+            ),
+        },
+        inboxObjectNamesResolver as never,
+      ),
       {
         getOrRecompute: async () => ({
           flatWorkspaceMemberMaps: {
@@ -267,6 +280,7 @@ const SCHEMA = getWorkspaceSchemaName(WORKSPACE_ID);
       {} as never,
       {} as never,
       {} as never,
+      inboxObjectNamesResolver as never,
     );
 
     const createChatService = (messageRepository: typeof messages) =>
