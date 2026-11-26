@@ -292,6 +292,20 @@ describe('app events realtime (e2e)', () => {
     });
   });
 
+  it('refuses a capability the server does not support', async () => {
+    await syncEvents({
+      events: [
+        JSON.parse(
+          JSON.stringify({
+            ...MESSAGE_ADDED_EVENT,
+            capabilities: { triggers: true },
+          }),
+        ),
+      ],
+      expectToFail: true,
+    });
+  });
+
   it('refuses properties that do not match the definition', async () => {
     const response = await emit({
       event: 'messageAdded',

@@ -89,4 +89,16 @@ describe('getEventDefinitionErrors', () => {
       }),
     ).toEqual(['Event "messageAdded" declares realtime scope "visitor" twice']);
   });
+
+  it('should reject a capability that is not supported', () => {
+    expect(
+      getEventDefinitionErrors({
+        name: 'messageAdded',
+        properties: [],
+        capabilities: JSON.parse('{"triggers":true}'),
+      }),
+    ).toEqual([
+      'Event "messageAdded" declares capability "triggers", which is not supported',
+    ]);
+  });
 });

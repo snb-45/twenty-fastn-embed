@@ -1,3 +1,4 @@
+import { EVENT_CAPABILITY_NAMES } from '@/application/constants/EventCapabilityNames';
 import { EVENT_LIMITS } from '@/application/constants/EventLimits';
 import { EVENT_NAME_PATTERN } from '@/application/constants/EventNamePattern';
 import { EVENT_PROPERTY_TYPES } from '@/application/constants/EventPropertyTypes';
@@ -66,6 +67,14 @@ export const getEventDefinitionErrors = ({
     ) {
       errors.push(
         `Event "${name}" property "${property.name}" must set objectUniversalIdentifier to the universalIdentifier of an object`,
+      );
+    }
+  }
+
+  for (const capabilityName of Object.keys(capabilities ?? {})) {
+    if (!EVENT_CAPABILITY_NAMES.includes(capabilityName)) {
+      errors.push(
+        `Event "${name}" declares capability "${capabilityName}", which is not supported`,
       );
     }
   }
