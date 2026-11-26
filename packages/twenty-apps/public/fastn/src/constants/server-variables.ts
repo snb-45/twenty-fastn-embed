@@ -1,0 +1,6 @@
+export const FASTN_API_KEY_ENV_VAR_NAME = 'FASTN_API_KEY';
+export const FASTN_IDENTITY_SECRET_ENV_VAR_NAME = 'FASTN_IDENTITY_SECRET';
+export const FASTN_API_URL_ENV_VAR_NAME = 'FASTN_API_URL';
+export const FASTN_IFRAME_CONFIG_ID_ENV_VAR_NAME = 'FASTN_IFRAME_CONFIG_ID';
+export const DEFAULT_FASTN_API_URL = 'https://api.fastn.dev';
+export const EMBED_SESSION_ROUTE_PATH = '/fastn/embed-session';
