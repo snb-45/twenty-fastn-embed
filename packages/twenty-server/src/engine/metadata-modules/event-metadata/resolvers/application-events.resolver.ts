@@ -28,7 +28,8 @@ import { VisitorEventTokenService } from 'src/engine/metadata-modules/event-meta
       userSession: false,
       apiKey: false,
       oauthClient: false,
-      application: true,
+      // A front component token carries a member, who must not act as the app
+      application: { withUser: false, withoutUser: true },
     },
     requiredPermissionFlags: [],
   }),

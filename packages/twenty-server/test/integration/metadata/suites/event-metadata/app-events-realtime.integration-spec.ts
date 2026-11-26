@@ -5,6 +5,7 @@ import { setupApplicationForSync } from 'test/integration/metadata/suites/applic
 import { syncApplication } from 'test/integration/metadata/suites/application/utils/sync-application.util';
 import { makeMetadataApiRequest } from 'test/integration/metadata/suites/utils/make-metadata-api-request.util';
 import { generateAppleAdminApplicationTokenPair } from 'test/integration/utils/generate-apple-admin-application-token-pair.util';
+import { generateApplicationAccessToken } from 'test/integration/utils/generate-application-access-token.util';
 import {
   type EventManifest,
   type EventOccurrence,
@@ -209,6 +210,7 @@ const openMemberStream = async ({
 
 describe('app events realtime (e2e)', () => {
   let applicationToken: string;
+  let frontComponentToken: string;
   let companyId: string;
 
   const emit = (input: Record<string, unknown>) =>
@@ -244,7 +246,12 @@ describe('app events realtime (e2e)', () => {
       [TEST_APP_ID],
     );
 
-    applicationToken = (
+    applicationToken = await generateApplicationAccessToken({
+      workspaceId: SEED_APPLE_WORKSPACE_ID,
+      applicationId: application.id,
+    });
+
+    frontComponentToken = (
       await generateAppleAdminApplicationTokenPair({
         applicationId: application.id,
       })
@@ -304,6 +311,36 @@ describe('app events realtime (e2e)', () => {
       ],
       expectToFail: true,
     });
+  });
+
+  it('refuses a member emitting or minting a visitor token through a front component token', async () => {
+    const emitResponse = await makeMetadataApiRequest(
+      {
+        query: EMIT_APP_EVENT_MUTATION,
+        variables: {
+          input: { event: 'messageAdded', properties: { companyId } },
+        },
+      },
+      frontComponentToken,
+    );
+    const visitorTokenResponse = await makeMetadataApiRequest(
+      {
+        query: CREATE_APP_VISITOR_EVENT_TOKEN_MUTATION,
+        variables: {
+          input: { anonymousId: 'visitor-1', events: ['messageAdded'] },
+        },
+      },
+      frontComponentToken,
+    );
+
+    expect(emitResponse.body.data?.emitAppEvent ?? null).toBeNull();
+    expect(emitResponse.body.errors?.[0]?.extensions?.code).toBe('FORBIDDEN');
+    expect(
+      visitorTokenResponse.body.data?.createAppVisitorEventToken ?? null,
+    ).toBeNull();
+    expect(visitorTokenResponse.body.errors?.[0]?.extensions?.code).toBe(
+      'FORBIDDEN',
+    );
   });
 
   it('refuses properties that do not match the definition', async () => {
@@ -406,7 +443,7 @@ describe('app events realtime (e2e)', () => {
 
   it('streams record-scoped occurrences to a member who can read the record', async () => {
     const memberStream = await openMemberStream({
-      applicationToken,
+      applicationToken: frontComponentToken,
       subscriptions: [{ event: 'messageAdded', recordId: companyId }],
     });
 
@@ -443,7 +480,7 @@ describe('app events realtime (e2e)', () => {
 
   it('refuses a member subscription whose recordId is not a UUID', async () => {
     const memberStream = await openMemberStream({
-      applicationToken,
+      applicationToken: frontComponentToken,
       subscriptions: [{ event: 'messageAdded', recordId: 'company-1' }],
     });
 
@@ -457,7 +494,7 @@ describe('app events realtime (e2e)', () => {
 
   it('refuses a member subscription to a record they cannot read', async () => {
     const memberStream = await openMemberStream({
-      applicationToken,
+      applicationToken: frontComponentToken,
       subscriptions: [{ event: 'messageAdded', recordId: uuidv4() }],
     });
 
