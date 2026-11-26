@@ -1,4 +1,3 @@
-import { STANDARD_OBJECTS } from 'twenty-shared/metadata';
 import { capitalize } from 'twenty-shared/utils';
 
 import { DEFAULT_VIEW_FIELD_SIZE } from 'src/engine/metadata-modules/flat-view-field/constants/default-view-field-size.constant';
@@ -10,9 +9,14 @@ import {
   type CreateStandardViewFieldArgs,
 } from 'src/engine/workspace-manager/twenty-standard-application/utils/view-field/create-standard-view-field-flat-metadata.util';
 
-const INBOX_THREAD_VIEW_NAMES = Object.keys(
-  STANDARD_OBJECTS.agentChatThread.views,
-) as AllStandardObjectViewName<'agentChatThread'>[];
+const INBOX_THREAD_VIEW_NAMES = [
+  'open',
+  'needsInput',
+  'mentions',
+  'assignedToMe',
+  'snoozed',
+  'done',
+] as const satisfies readonly AllStandardObjectViewName<'agentChatThread'>[];
 
 export const computeStandardAgentChatThreadViewFields = (
   args: Omit<CreateStandardViewFieldArgs<'agentChatThread'>, 'context'>,

@@ -32,6 +32,15 @@ const buildInboxFlatView = ({
   updatedAt: '2026-01-01T00:00:00.000Z',
 });
 
+const INBOX_THREAD_VIEW_FIELD_NAMES = [
+  'title',
+  'channelId',
+  'lastMessageSenderWorkspaceMemberId',
+  'lastMessageText',
+  'assignee',
+  'createdAt',
+] as const;
+
 const STANDARD_OPEN_VIEW_FIELDS = [
   {
     viewUniversalIdentifier: STANDARD_OPEN_VIEW,
@@ -98,20 +107,14 @@ describe('buildInboxViewToListViewOperations', () => {
       {
         writerApplicationUniversalIdentifier: WORKSPACE_CUSTOM_APPLICATION,
         viewsToUpdate: [{ ...channelInboxView, ...LIST_VIEW_PROPERTIES }],
-        viewFields: [
-          'title',
-          'channelId',
-          'lastMessageSenderWorkspaceMemberId',
-          'lastMessageText',
-          'assignee',
-          'createdAt',
-        ].map((fieldName, position) => ({
-          viewUniversalIdentifier: 'channel-open-view',
-          fieldMetadataUniversalIdentifier:
-            INBOX_THREAD.fields[fieldName as keyof typeof INBOX_THREAD.fields]
-              .universalIdentifier,
-          position,
-        })),
+        viewFields: INBOX_THREAD_VIEW_FIELD_NAMES.map(
+          (fieldName, position) => ({
+            viewUniversalIdentifier: 'channel-open-view',
+            fieldMetadataUniversalIdentifier:
+              INBOX_THREAD.fields[fieldName].universalIdentifier,
+            position,
+          }),
+        ),
       },
     ]);
   });

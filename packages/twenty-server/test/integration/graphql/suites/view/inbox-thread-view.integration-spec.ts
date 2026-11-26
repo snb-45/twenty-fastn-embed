@@ -81,7 +81,10 @@ const toInboxThreadViewListSettings = ({
   isCompact,
   listPinnedFieldMetadataId,
   viewFields,
-}: InboxThreadView) => ({
+}: Pick<
+  InboxThreadView,
+  'type' | 'isCompact' | 'listPinnedFieldMetadataId' | 'viewFields'
+>) => ({
   type,
   isCompact,
   listPinnedFieldMetadataId,

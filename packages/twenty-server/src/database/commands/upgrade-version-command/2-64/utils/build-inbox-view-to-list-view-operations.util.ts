@@ -92,6 +92,30 @@ export const buildInboxViewToListViewOperations = <
       : []),
   ]);
 
+  const buildViewFieldsToCreateForWriterApplication = ({
+    writerApplicationUniversalIdentifier,
+    writerInboxFlatViews,
+  }: {
+    writerApplicationUniversalIdentifier: string;
+    writerInboxFlatViews: TFlatView[];
+  }): (TStandardFlatViewField | UniversalFlatViewField)[] => {
+    if (
+      writerApplicationUniversalIdentifier ===
+      TWENTY_STANDARD_APPLICATION.universalIdentifier
+    ) {
+      return standardViewFieldsToCreate;
+    }
+
+    return writerInboxFlatViews.flatMap(({ universalIdentifier }) =>
+      buildInboxThreadViewFieldsToCreate({
+        viewUniversalIdentifier: universalIdentifier,
+        applicationUniversalIdentifier: writerApplicationUniversalIdentifier,
+        existingViewFields: findFlatViewFieldsOfView(universalIdentifier),
+        createdAt: now,
+      }),
+    );
+  };
+
   return [...writerApplicationUniversalIdentifiers].map(
     (writerApplicationUniversalIdentifier) => {
       const writerInboxFlatViews = inboxFlatViews.filter(
@@ -107,20 +131,10 @@ export const buildInboxViewToListViewOperations = <
           ...INBOX_THREAD_LIST_VIEW_UNIVERSAL_PROPERTIES,
           updatedAt: now,
         })),
-        viewFieldsToCreate:
-          writerApplicationUniversalIdentifier ===
-          TWENTY_STANDARD_APPLICATION.universalIdentifier
-            ? standardViewFieldsToCreate
-            : writerInboxFlatViews.flatMap(({ universalIdentifier }) =>
-                buildInboxThreadViewFieldsToCreate({
-                  viewUniversalIdentifier: universalIdentifier,
-                  applicationUniversalIdentifier:
-                    writerApplicationUniversalIdentifier,
-                  existingViewFields:
-                    findFlatViewFieldsOfView(universalIdentifier),
-                  createdAt: now,
-                }),
-              ),
+        viewFieldsToCreate: buildViewFieldsToCreateForWriterApplication({
+          writerApplicationUniversalIdentifier,
+          writerInboxFlatViews,
+        }),
       };
     },
   );

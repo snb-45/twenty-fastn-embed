@@ -11,6 +11,15 @@ const CHANNEL_WITH_OPEN_VIEW_ID = '20202020-0000-4000-8000-00000000000a';
 const CHANNEL_WITHOUT_VIEW_ID = '20202020-0000-4000-8000-00000000000b';
 const WORKSPACE_CUSTOM_APPLICATION = '20202020-0000-4000-8000-0000000000c1';
 
+const EXPECTED_INBOX_THREAD_VIEW_FIELDS = [
+  { fieldName: 'title', isVisible: true },
+  { fieldName: 'channelId', isVisible: true },
+  { fieldName: 'lastMessageSenderWorkspaceMemberId', isVisible: true },
+  { fieldName: 'lastMessageText', isVisible: true },
+  { fieldName: 'assignee', isVisible: false },
+  { fieldName: 'createdAt', isVisible: false },
+] as const;
+
 describe('buildAgentChatChannelViewsToCreateForChannels', () => {
   it('should create only the views a channel does not have yet', () => {
     const { viewsToCreate, viewFiltersToCreate, viewFieldsToCreate } =
@@ -97,21 +106,15 @@ describe('buildAgentChatChannelViewsToCreateForChannels', () => {
           isVisible,
         })),
     ).toEqual(
-      [
-        { fieldName: 'title', isVisible: true },
-        { fieldName: 'channelId', isVisible: true },
-        { fieldName: 'lastMessageSenderWorkspaceMemberId', isVisible: true },
-        { fieldName: 'lastMessageText', isVisible: true },
-        { fieldName: 'assignee', isVisible: false },
-        { fieldName: 'createdAt', isVisible: false },
-      ].map(({ fieldName, isVisible }, position) => ({
-        fieldMetadataUniversalIdentifier:
-          STANDARD_OBJECTS.agentChatThread.fields[
-            fieldName as keyof typeof STANDARD_OBJECTS.agentChatThread.fields
-          ].universalIdentifier,
-        position,
-        isVisible,
-      })),
+      EXPECTED_INBOX_THREAD_VIEW_FIELDS.map(
+        ({ fieldName, isVisible }, position) => ({
+          fieldMetadataUniversalIdentifier:
+            STANDARD_OBJECTS.agentChatThread.fields[fieldName]
+              .universalIdentifier,
+          position,
+          isVisible,
+        }),
+      ),
     );
     expect(viewFieldsToCreate).toHaveLength(viewsToCreate.length * 6);
   });
