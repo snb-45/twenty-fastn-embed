@@ -8,7 +8,6 @@ type SendInboxMessageToEachMemberResult = {
   failedSends: { workspaceMemberId: string; error: unknown }[];
 };
 
-// One send per member, so one who cannot have the conversation does not block the others.
 export const sendInboxMessageToEachMember = async ({
   workspaceMemberIds,
   buildMessage,

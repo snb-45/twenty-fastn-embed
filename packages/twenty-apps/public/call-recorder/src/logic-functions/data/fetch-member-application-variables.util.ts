@@ -1,17 +1,12 @@
 import { MetadataApiClient } from 'twenty-client-sdk/metadata';
 
+import { type MemberApplicationVariables } from 'src/logic-functions/types/member-application-variables.type';
 import { fetchWithRateLimitRetry } from 'src/logic-functions/utils/fetch-with-rate-limit-retry.util';
-
-type MemberApplicationVariables = {
-  userWorkspaceId: string;
-  workspaceMemberId: string;
-  variables: { key: string; value: string }[];
-};
 
 export const fetchMemberApplicationVariables = async (): Promise<
   MemberApplicationVariables[]
 > => {
-  // Read as a user, this query only returns that user's own values.
+  // Without runAs, a run started by a member only gets that member's values.
   const metadataClient = new MetadataApiClient({
     fetch: fetchWithRateLimitRetry,
     runAs: 'application',
