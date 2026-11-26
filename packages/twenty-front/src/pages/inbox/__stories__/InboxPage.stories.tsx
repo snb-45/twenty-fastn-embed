@@ -718,6 +718,10 @@ export const InboxViewsList: Story = {
 
     await user.click(canvas.getByRole('button', { name: 'Open done view' }));
     await expect(await listPane.findByText(': Done')).toBeVisible();
-    await listPane.findByText(FIRST_THREAD_TITLE);
+
+    await user.click(await listPane.findByText(FIRST_THREAD_TITLE));
+    await canvas.findByRole('button', { name: 'Chat details' });
+    await expect(listPane.getByText(': Done')).toBeVisible();
+    await expect(listPane.getByText(SECOND_THREAD_TITLE)).toBeVisible();
   },
 };

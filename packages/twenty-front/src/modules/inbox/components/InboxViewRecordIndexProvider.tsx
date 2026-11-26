@@ -1,3 +1,4 @@
+import { useNavigateToInboxThread } from '@/inbox/hooks/useNavigateToInboxThread';
 import { type EnrichedObjectMetadataItem } from '@/object-metadata/types/EnrichedObjectMetadataItem';
 import { RecordComponentInstanceContextsWrapper } from '@/object-record/components/RecordComponentInstanceContextsWrapper';
 import { useObjectPermissions } from '@/object-record/hooks/useObjectPermissions';
@@ -23,6 +24,7 @@ export const InboxViewRecordIndexProvider = ({
   children,
 }: InboxViewRecordIndexProviderProps) => {
   const { objectPermissionsByObjectMetadataId } = useObjectPermissions();
+  const { navigateToInboxThread } = useNavigateToInboxThread();
 
   const {
     fieldDefinitionByFieldMetadataItemId,
@@ -46,6 +48,7 @@ export const InboxViewRecordIndexProvider = ({
         onIndexRecordsLoaded: () => {},
         indexIdentifierUrl: (threadId) =>
           getAppPath(AppPath.AiChatInbox, { threadId }),
+        onOpenRecord: (threadId) => navigateToInboxThread({ threadId }),
         recordFieldByFieldMetadataItemId,
         labelIdentifierFieldMetadataItem,
         fieldMetadataItemByFieldMetadataItemId,

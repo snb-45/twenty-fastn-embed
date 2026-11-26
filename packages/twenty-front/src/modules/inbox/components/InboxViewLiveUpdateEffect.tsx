@@ -1,6 +1,7 @@
 import { useListenToObjectRecordOperationBrowserEvent } from '@/browser-event/hooks/useListenToObjectRecordOperationBrowserEvent';
 import { INBOX_VIEW_REFETCH_DEBOUNCE_IN_MS } from '@/inbox/constants/InboxViewRefetchDebounceInMs';
 import { objectMetadataItemFamilySelector } from '@/object-metadata/states/objectMetadataItemFamilySelector';
+import { useRefetchAggregateQueriesForObjectMetadataItem } from '@/object-record/hooks/useRefetchAggregateQueriesForObjectMetadataItem';
 import { useRefetchFindManyRecords } from '@/object-record/hooks/useRefetchFindManyRecords';
 import { useRecordIndexContextOrThrow } from '@/object-record/record-index/contexts/RecordIndexContext';
 import { useAtomFamilySelectorValue } from '@/ui/utilities/state/jotai/hooks/useAtomFamilySelectorValue';
@@ -23,10 +24,13 @@ export const InboxViewLiveUpdateEffect = () => {
     objectMetadataNamePlural: objectMetadataItem.namePlural,
   });
 
-  const debouncedRefetchInboxViewThreads = useDebouncedCallback(
-    () => void refetchFindManyRecords(),
-    INBOX_VIEW_REFETCH_DEBOUNCE_IN_MS,
-  );
+  const { refetchAggregateQueriesForObjectMetadataItem } =
+    useRefetchAggregateQueriesForObjectMetadataItem();
+
+  const debouncedRefetchInboxViewThreads = useDebouncedCallback(() => {
+    void refetchFindManyRecords();
+    void refetchAggregateQueriesForObjectMetadataItem({ objectMetadataItem });
+  }, INBOX_VIEW_REFETCH_DEBOUNCE_IN_MS);
 
   useListenToObjectRecordOperationBrowserEvent({
     onObjectRecordOperationBrowserEvent: debouncedRefetchInboxViewThreads,
