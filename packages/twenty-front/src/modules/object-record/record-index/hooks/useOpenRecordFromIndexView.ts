@@ -13,10 +13,12 @@ import { useWorkspaceSurface } from '@/ui/layout/hooks/useWorkspaceSurface';
 import { useStore } from 'jotai';
 import { useCallback } from 'react';
 import { AppPath, OpenRecordIn, SidePanelPages } from 'twenty-shared/types';
+import { isDefined } from 'twenty-shared/utils';
 import { useNavigateApp } from '~/hooks/useNavigateApp';
 
 export const useOpenRecordFromIndexView = () => {
-  const { recordIndexId, objectNameSingular } = useRecordIndexContextOrThrow();
+  const { recordIndexId, objectNameSingular, onOpenRecord } =
+    useRecordIndexContextOrThrow();
 
   const navigate = useNavigateApp();
   const { openRecordInSidePanel } = useOpenRecordInSidePanel();
@@ -45,6 +47,12 @@ export const useOpenRecordFromIndexView = () => {
 
   const openRecordFromIndexView = useCallback(
     ({ recordId }: { recordId: string }) => {
+      if (isDefined(onOpenRecord)) {
+        onOpenRecord(recordId);
+
+        return;
+      }
+
       const parentViewFilters = store.get(currentRecordFilters);
 
       const parentViewSorts = store.get(currentRecordSorts);
@@ -115,6 +123,7 @@ export const useOpenRecordFromIndexView = () => {
       currentRecordFilterGroups,
       recordIndexId,
       objectNameSingular,
+      onOpenRecord,
       navigate,
       openRecordInSidePanel,
       openRecordIn,

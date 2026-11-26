@@ -8,6 +8,7 @@ import { type ObjectRecordsPermissions } from 'twenty-shared/types';
 
 export type RecordIndexContextValue = {
   indexIdentifierUrl: (recordId: string) => string;
+  onOpenRecord?: (recordId: string) => void;
   onIndexRecordsLoaded: () => void;
   objectNamePlural: string;
   objectNameSingular: string;
