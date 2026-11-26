@@ -80,7 +80,7 @@ const SCHEMA = getWorkspaceSchemaName(WORKSPACE_ID);
     };
     const workspaceStorage = new AgentHistoryWorkspaceStorageService(
       dataSource,
-      inboxObjectNamesResolver as never,
+      inboxObjectNamesResolver,
     );
     const migrationState = new AgentHistoryMigrationStateService();
     const migration = new AgentHistoryMigrationService(
@@ -255,7 +255,7 @@ const SCHEMA = getWorkspaceSchemaName(WORKSPACE_ID);
               new Error('DM identity is disabled for the migration fixture'),
             ),
         },
-        inboxObjectNamesResolver as never,
+        inboxObjectNamesResolver,
       ),
       {
         getOrRecompute: async () => ({
