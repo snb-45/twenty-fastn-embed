@@ -1,7 +1,7 @@
 import { styled } from '@linaria/react';
 import { AnimatePresence } from 'framer-motion';
 import { useLingui } from '@lingui/react/macro';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { AppPath } from 'twenty-shared/types';
 import { getAppPath, isDefined, isValidUuid } from 'twenty-shared/utils';
@@ -13,6 +13,7 @@ import { InboxBreadcrumb } from '@/inbox/components/InboxBreadcrumb';
 import { InboxCommandMenuScope } from '@/inbox/components/InboxCommandMenuScope';
 import { InboxConversationPane } from '@/inbox/components/InboxConversationPane';
 import { InboxPageListPane } from '@/inbox/components/InboxPageListPane';
+import { InboxViewListPane } from '@/inbox/components/InboxViewListPane';
 import { InboxSelectionEffect } from '@/inbox/components/InboxSelectionEffect';
 import { InboxSelectionPane } from '@/inbox/components/InboxSelectionPane';
 import { InboxSelectionToContextStoreEffect } from '@/inbox/components/InboxSelectionToContextStoreEffect';
@@ -24,11 +25,13 @@ import { useInboxThreadListKeyboardNavigation } from '@/inbox/hooks/useInboxThre
 import { useIsInboxShowingDirectMessage } from '@/inbox/hooks/useIsInboxShowingDirectMessage';
 import { useIsInboxSplitView } from '@/inbox/hooks/useIsInboxSplitView';
 import { useInboxThreadList } from '@/inbox/hooks/useInboxThreadList';
+import { useInboxViewRecordIndexId } from '@/inbox/hooks/useInboxViewRecordIndexId';
 import { useLoadInboxThreadList } from '@/inbox/hooks/useLoadInboxThreadList';
 import { inboxSelectedThreadListSourceState } from '@/inbox/states/inboxSelectedThreadListSourceState';
 import { inboxSelectedChannelViewSelector } from '@/inbox/states/selectors/inboxSelectedChannelViewSelector';
 import { isSidePanelItemShowingAiChat } from '@/ai-chat/utils/isSidePanelItemShowingAiChat';
 import { MAIN_CONTEXT_STORE_INSTANCE_ID } from '@/context-store/constants/MainContextStoreInstanceId';
+import { recordIndexAllRecordIdsComponentSelector } from '@/object-record/record-index/states/selectors/recordIndexAllRecordIdsComponentSelector';
 import { RecordSelectionRecordIdsEffect } from '@/object-record/record-selection/components/RecordSelectionRecordIdsEffect';
 import { RecordSelectionComponentInstanceContext } from '@/object-record/record-selection/states/contexts/RecordSelectionComponentInstanceContext';
 import { selectedRecordIdsComponentSelector } from '@/object-record/record-selection/states/selectors/selectedRecordIdsComponentSelector';
@@ -78,6 +81,19 @@ const InboxPageContent = () => {
   const { threads, isLoading } = useInboxThreadList(
     inboxSelectedThreadListSource,
   );
+  const isInboxViewsEnabled = useIsFeatureEnabled(
+    FeatureFlagKey.IS_INBOX_VIEWS_ENABLED,
+  );
+  const { recordIndexId: inboxViewRecordIndexId } = useInboxViewRecordIndexId();
+  const inboxViewThreadIds = useAtomComponentSelectorValue(
+    recordIndexAllRecordIdsComponentSelector,
+    inboxViewRecordIndexId,
+  );
+  const inboxViewThreads = useMemo(
+    () => inboxViewThreadIds.map((id) => ({ id })),
+    [inboxViewThreadIds],
+  );
+  const listedThreads = isInboxViewsEnabled ? inboxViewThreads : threads;
   const { loadInboxThreadList } = useLoadInboxThreadList();
   const fetchMoreShownThreads = () =>
     void loadInboxThreadList({
@@ -144,7 +160,7 @@ const InboxPageContent = () => {
   const desktopThreadHeaderActions = isDefined(selectedThreadId) && (
     <>
       <InboxThreadPagination
-        threads={threads}
+        threads={listedThreads}
         threadId={selectedThreadId}
         onThreadSelect={selectThread}
       />
@@ -154,11 +170,11 @@ const InboxPageContent = () => {
 
   return (
     <StyledInbox>
-      <RecordSelectionRecordIdsEffect records={threads} />
+      <RecordSelectionRecordIdsEffect records={listedThreads} />
       <InboxSelectionEffect
         key={selectedThreadId}
         selectedThreadId={selectedThreadId}
-        threads={threads}
+        threads={listedThreads}
       />
       {isSelectionShown && !isThreadShown && (
         <InboxSelectionToContextStoreEffect
@@ -166,7 +182,13 @@ const InboxPageContent = () => {
         />
       )}
       <InboxCommandMenuScope>
-        {isListShown && (
+        {isListShown && isInboxViewsEnabled && (
+          <InboxViewListPane
+            isFullWidth={isListFullWidth}
+            isSecondaryPaneShown={isSecondaryPaneShown}
+          />
+        )}
+        {isListShown && !isInboxViewsEnabled && (
           <InboxPageListPane
             threads={threads}
             isLoading={isLoading}

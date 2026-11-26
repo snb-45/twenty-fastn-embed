@@ -24,6 +24,7 @@ import { ComponentDecorator } from 'twenty-ui/testing';
 import { themeCssVariables } from 'twenty-ui/theme';
 import { v4 as uuidv4 } from 'uuid';
 import { AGENT_CHAT_THREAD_PRESET_FILTER } from 'twenty-shared/ai';
+import { STANDARD_OBJECTS } from 'twenty-shared/metadata';
 
 import { INBOX_LAYOUT } from '@/inbox/constants/InboxLayout';
 import { INBOX_LIST_PANE_WIDTH } from '@/inbox/constants/InboxListPaneWidth';
@@ -45,6 +46,12 @@ import { useOpenAskAiPageInSidePanel } from '@/side-panel/hooks/useOpenAskAiPage
 import { isSidePanelOpenedState } from '@/side-panel/states/isSidePanelOpenedState';
 import { sidePanelNavigationStackState } from '@/side-panel/states/sidePanelNavigationStackState';
 import { jotaiStore } from '@/ui/utilities/state/jotai/jotaiStore';
+import { ViewType } from '@/views/types/ViewType';
+import { type ViewWithRelations } from '@/views/types/ViewWithRelations';
+import { currentWorkspaceState } from '@/auth/states/currentWorkspaceState';
+import { FeatureFlagKey, ViewPresetFilter } from '~/generated-metadata/graphql';
+import { mockCurrentWorkspace } from '~/testing/mock-data/users';
+import { setTestViewsInMetadataStore } from '~/testing/utils/setTestViewsInMetadataStore';
 import { InboxPage } from '~/pages/inbox/InboxPage';
 import { MemoryRouterAppNavigatorProvider } from '~/testing/components/MemoryRouterAppNavigatorProvider';
 import { TEST_CHAT_OBJECT_METADATA_ID } from '~/testing/constants/TestChatObjectMetadataId';
@@ -63,6 +70,53 @@ const THREAD_ARCHIVED_AT = '2026-10-21T11:00:00.000Z';
 const NEW_CHAT_PATH = getAppPath(AppPath.AiChatInbox, {
   threadId: AI_CHAT_NEW_THREAD_PATH_SEGMENT,
 });
+const OPEN_INBOX_VIEW_ID = '20202020-0000-4000-8000-0000000000e1';
+const DONE_INBOX_VIEW_ID = '20202020-0000-4000-8000-0000000000e2';
+const buildInboxView = ({
+  id,
+  name,
+  presetFilter,
+  universalIdentifier,
+  position,
+}: Pick<
+  ViewWithRelations,
+  'id' | 'name' | 'presetFilter' | 'universalIdentifier' | 'position'
+>): ViewWithRelations => ({
+  id,
+  name,
+  presetFilter,
+  universalIdentifier,
+  position,
+  type: ViewType.LIST,
+  objectMetadataId: TEST_CHAT_OBJECT_METADATA_ID,
+  icon: 'IconInbox',
+  isCompact: false,
+  isPrivate: false,
+  isActive: true,
+  shouldHideEmptyGroups: false,
+  viewFields: [],
+  viewGroups: [],
+  viewFilters: [],
+  viewSorts: [],
+});
+const INBOX_VIEWS = [
+  buildInboxView({
+    id: DONE_INBOX_VIEW_ID,
+    name: 'Done',
+    presetFilter: ViewPresetFilter.INBOX_DONE,
+    universalIdentifier:
+      STANDARD_OBJECTS.agentChatThread.views.done.universalIdentifier,
+    position: 5,
+  }),
+  buildInboxView({
+    id: OPEN_INBOX_VIEW_ID,
+    name: 'Open',
+    presetFilter: ViewPresetFilter.INBOX_OPEN,
+    universalIdentifier:
+      STANDARD_OBJECTS.agentChatThread.views.open.universalIdentifier,
+    position: 0,
+  }),
+];
 const THREADS: AiChatThreadRecord[] = [
   {
     __typename: 'AgentChatThread',
@@ -126,6 +180,11 @@ const InboxRouteNavigation = () => {
         }
       >
         Change search parameters
+      </Button>
+      <Button
+        onClick={() => navigate({ search: `?viewId=${DONE_INBOX_VIEW_ID}` })}
+      >
+        Open done view
       </Button>
       <Button onClick={() => navigate(-1)}>Back through history</Button>
       <Button onClick={() => navigate(1)}>Forward through history</Button>
@@ -627,5 +686,38 @@ export const TriageAfterReopeningConversation: Story = {
     await expect(
       canvas.getByRole('button', { name: 'Chat details' }),
     ).toBeVisible();
+  },
+};
+
+export const InboxViewsList: Story = {
+  beforeEach: () => {
+    jotaiStore.set(inboxLayoutState.atom, INBOX_LAYOUT.SPLIT_VIEW);
+    jotaiStore.set(currentWorkspaceState.atom, {
+      ...mockCurrentWorkspace,
+      featureFlags: [
+        { key: FeatureFlagKey.IS_AI_CHAT_INBOX_ENABLED, value: true },
+        { key: FeatureFlagKey.IS_INBOX_VIEWS_ENABLED, value: true },
+      ],
+    });
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const user = userEvent.setup();
+    const listPane = within(
+      await canvas.findByRole('region', { name: 'Conversation list' }),
+    );
+
+    setTestViewsInMetadataStore(jotaiStore, INBOX_VIEWS);
+
+    await listPane.findByText(FIRST_THREAD_TITLE);
+    await expect(listPane.getByText(SECOND_THREAD_TITLE)).toBeVisible();
+    await expect(listPane.getByText(': Open')).toBeVisible();
+    await expect(
+      listPane.queryByTestId('remove-icon-view-preset-filter-INBOX_OPEN'),
+    ).not.toBeInTheDocument();
+
+    await user.click(canvas.getByRole('button', { name: 'Open done view' }));
+    await expect(await listPane.findByText(': Done')).toBeVisible();
+    await listPane.findByText(FIRST_THREAD_TITLE);
   },
 };

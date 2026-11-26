@@ -243,7 +243,8 @@ jest.mock(
 let mockIsInboxEnabled = true;
 
 jest.mock('@/workspace/hooks/useIsFeatureEnabled', () => ({
-  useIsFeatureEnabled: () => mockIsInboxEnabled,
+  useIsFeatureEnabled: (featureFlagKey: string) =>
+    featureFlagKey === 'IS_AI_CHAT_INBOX_ENABLED' && mockIsInboxEnabled,
 }));
 
 const [firstThread, secondThread, thirdThread] = THREADS;
